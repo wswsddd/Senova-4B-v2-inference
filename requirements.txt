@@ -1,0 +1,15 @@
+# Shared SGLang backend, System One frontend and evaluation environment.
+# Observed working server core versions; Python 3.12 / CUDA 13.0 Torch wheel.
+sglang==0.5.15
+torch==2.11.0
+transformers==5.12.1
+sglang-kernel==0.4.4
+flashinfer-python[cu13]==0.6.12
+flashinfer-cubin==0.6.12
+triton==3.6.0
+httpx==0.28.1
+huggingface-hub==1.23.0
+ninja==1.13.0
+safetensors==0.8.0
+tokenizers==0.23.0rc0
+apache-tvm-ffi==0.1.11
