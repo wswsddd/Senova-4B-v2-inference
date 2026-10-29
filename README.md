@@ -1,7 +1,7 @@
 # Senova-4B-v2
 
 Senova-4B-v2 uses a revised training mixture of approximately 1.8 million
-high-quality examples and adds Read Twice inference. Training is SFT only;
+high-quality examples with option-set soft labels and adds Read Twice inference;
 base model: Qwen/Qwen3.5-4B. Model weights are Apache-2.0; inference code is MIT.
 
 - [Model weights](https://huggingface.co/WangSenQWQ/Senova-4B-v2)
