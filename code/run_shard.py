@@ -42,6 +42,7 @@ def main() -> None:
     p.add_argument("--fresh", action="store_true", help="ignore existing results in this shard out dir")
     p.add_argument("--no-verify", action="store_true")
     p.add_argument("--engine", default="transformers")
+    p.add_argument("--head-checkpoint", help="decision_head: v61 frozen head or v62/v63/v65-v67 LoRA + head checkpoint")
     p.add_argument("--device", help="transformers engine option, e.g. cuda")
     p.add_argument("--chat-template", choices=("true", "false"), help="transformers --option chat_template=...")
     p.add_argument("--enable-thinking", choices=("true", "false"), help="chat template thinking mode; default false")
@@ -56,7 +57,18 @@ def main() -> None:
     p.add_argument("--top-logprobs", type=int, help="sglang chat top-k logprobs; default 20")
     p.add_argument("--request-timeout", type=float, help="sglang HTTP timeout in seconds; default 600")
     p.add_argument("--api-key-env", help="sglang API-key environment variable name; default SGLANG_API_KEY")
+    p.add_argument("--read-twice", action="store_true", help="sglang/unified_lm_head: repeat the complete user prompt twice; system remains once")
     args = p.parse_args()
+    if args.read_twice and args.engine not in ("sglang", "unified_lm_head"):
+        p.error("--read-twice requires --engine sglang or unified_lm_head")
+    if args.engine == 'decision_head':
+        if not args.head_checkpoint:
+            p.error('--engine decision_head requires --head-checkpoint')
+        if (args.enable_thinking == 'true' or args.chat_template is not None
+                or args.candidate_batch_size is not None or args.candidate_cache is not None):
+            p.error('decision_head uses the fixed non-thinking protocol; candidate/chat-template options are unsupported')
+    elif args.head_checkpoint:
+        p.error('--head-checkpoint requires --engine decision_head')
 
     if args.engine == "sglang":
         if not args.model_name:
@@ -70,7 +82,7 @@ def main() -> None:
             p.error("--label-alphabet requires --label-mode characters")
         if args.device or args.chat_template is not None or args.candidate_batch_size is not None or args.candidate_cache is not None:
             p.error("--device, --chat-template and --candidate-* are local transformers options")
-        engine_opts = {"model": args.model_name, "tokenizer": tokenizer}
+        engine_opts = {"model": args.model_name, "tokenizer": tokenizer, "read_twice": args.read_twice}
         for attr, key in (("base_url", "base_url"), ("label_mode", "label_mode"),
                           ("label_alphabet", "label_alphabet"),
                           ("logprob_backend", "logprob_backend"), ("top_logprobs", "top_logprobs"),
@@ -84,6 +96,10 @@ def main() -> None:
         if any(value is not None for value in (args.base_url, args.model_name, args.tokenizer_path, args.label_mode, args.label_alphabet, args.logprob_backend, args.top_logprobs, args.request_timeout, args.api_key_env)):
             p.error("SGLang service options require --engine sglang")
         engine_opts = {"model": args.model_path}
+        if args.engine == 'unified_lm_head':
+            engine_opts['read_twice'] = args.read_twice
+        if args.engine == 'decision_head':
+            engine_opts['head_checkpoint'] = args.head_checkpoint
         if args.device:
             engine_opts["device"] = args.device
         if args.chat_template is not None:
@@ -118,9 +134,11 @@ def main() -> None:
         "model_path": args.model_path,
         "model_tag": tag,
         "engine": args.engine,
+        "head_checkpoint": args.head_checkpoint,
         "model_name": args.model_name,
         "tokenizer_path": args.tokenizer_path,
         "base_url": args.base_url,
+        "read_twice": args.read_twice,
         "shard": args.shard,
         "num_shards": args.num_shards,
         "edition": args.edition,

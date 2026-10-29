@@ -15,6 +15,14 @@ def stamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+def is_device_error(result):
+    message = result.get('error', '').lower()
+    return result.get('exception') in ('OutOfMemoryError', 'AcceleratorError') or any(
+        marker in message for marker in ('device-side assert', 'cuda ran out of memory',
+            'cuda out of memory', 'cudnn_status_execution_failed',
+            'cublas_status_execution_failed', 'illegal memory access'))
+
+
 def iter_rows(rows_path, keep=None):
     paths = rows_path if isinstance(rows_path, (list, tuple)) else [rows_path]
     for path in paths:
@@ -26,11 +34,14 @@ def iter_rows(rows_path, keep=None):
 def validate_resume_provenance(previous, engine_name, provenance):
     """Do not mix predictions from different model/scoring contracts."""
     kind = provenance.get("kind")
-    if kind not in ("transformers", "sglang"):
+    if kind not in ("transformers", "sglang", "decision_head", "unified_lm_head"):
         return
     old = previous.get("model_source", {})
     if kind == "transformers":
         fields = ("repo", "revision", "chat_template", "enable_thinking", "scoring_version")
+    elif kind in ('decision_head', 'unified_lm_head'):
+        fields = ('base_model', 'base_config_sha256', 'head_sha256', 'lora_sha256',
+                  'checkpoint_version', 'label_map', 'scoring_version', 'prompt_version', 'enable_thinking')
     else:
         fields = ("base_url", "model", "tokenizer", "chat_template_sha256", "enable_thinking", "scoring_version", "prompt_version", "label_mode", "label_policy", "logprob_backend", "top_logprobs")
     changed = [key for key in fields if old.get(key) != provenance.get(key)]
@@ -65,7 +76,7 @@ def run(engine_name, engine_options, rows_path, out_dir, limit=None, compact=Fal
     event(event="loading", engine=engine_name)
     engine = load_engine(engine_name, **engine_options)
     engine.synchronize()
-    if resume and results_path.exists() and results_path.stat().st_size and engine.provenance.get("kind") in ("transformers", "sglang"):
+    if resume and results_path.exists() and results_path.stat().st_size and engine.provenance.get("kind") in ("transformers", "sglang", "decision_head", "unified_lm_head"):
         if previous_environment is None:
             engine.close()
             raise ValueError("Cannot verify model/scoring settings without environment.json; use a new output directory or --fresh.")
@@ -127,7 +138,7 @@ def run(engine_name, engine_options, rows_path, out_dir, limit=None, compact=Fal
             completed.add(rid)
             if finished % 10 == 0:
                 event(event="progress", engine=engine_name, completed=len(completed), counts=dict(counts), elapsed_seconds=round(time.perf_counter() - start, 1))
-            if halt_on_device_error and (result.get("exception") in ("OutOfMemoryError", "AcceleratorError") or "device-side assert" in result.get("error", "")):
+            if halt_on_device_error and is_device_error(result):
                 event(event="failed", engine=engine_name, completed=len(completed), counts=dict(counts), error=result.get("error"), failed_run_id=rid, elapsed_seconds=round(time.perf_counter() - start, 1))
                 raise RuntimeError("Device error; stopping before the accelerator context is reused")
             if counts["error"] >= 5 and counts["ok"] == 0:

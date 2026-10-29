@@ -6,7 +6,7 @@ base model: Qwen/Qwen3.5-4B. Model weights are Apache-2.0; inference code is MIT
 
 - [Model weights](https://huggingface.co/WangSenQWQ/Senova-4B-v2)
 - [Public scores.json](https://huggingface.co/datasets/WangSenQWQ/Senova-4B-v2-decision-index-results/blob/main/runs/senova_4b_v2_readtwice/scores.json)
-- Public Decision Index 0.3: **66.87**, complete=true, 140178/140178 scoreable
+- Public Decision Index 0.3: **67.27**, complete=true, 140178/140178 scoreable
   requests successful.
 
 The uploaded repository includes `release.json` with exact model/results
@@ -149,7 +149,7 @@ one RTX PRO 6000. Maintainers measure mean, median and P80 against the
 
 ## 5. Public evaluation record
 
-Public suite 0.3: index 66.87; complete=true; all 140178 scoreable requests
+Public suite 0.3: index 67.27; complete=true; all 140178 scoreable requests
 successful. This is not the private Full score. Original model/run identifiers
 are preserved in results; Senova-4B-v2 is the release name.
 
